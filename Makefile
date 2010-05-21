@@ -1,6 +1,6 @@
 obj-m := at91-adc.o
 
-KERNELDIR	:= /lib/modules/$(shell uname -r)/build
+KERNELDIR	?= /lib/modules/$(shell uname -r)/build
 PWD		:= $(shell pwd)
 
 all default:
