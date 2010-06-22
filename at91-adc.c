@@ -35,11 +35,21 @@
 
 #include "at91_adc.h"
 
-#define DRV_CLASS	 "at91_adc"
-#define ADC_REQUEST 1			//un-used atm
-#define ADC_READ		2
+#define DRV_CLASS	"at91_adc"
 
-static void at91_adc_device_release(struct device *dev){}
+#define ADC_REQUEST 	1			//un-used atm
+#define ADC_READ		2
+#define ADC_FREE		3
+
+/* Device functions */
+#define at91_adc_read(reg)				ioread32(at91_adc_base + (reg))
+#define at91_adc_write(reg, val)	iowrite32((val), at91_adc_base + (reg))
+#define AT91_DEFAULT_CONFIG			 AT91_ADC_SHTIM	 | \
+																	AT91_ADC_STARTUP | \
+																	AT91_ADC_PRESCAL | \
+																	AT91_ADC_SLEEP
+
+static void at91_adc_device_release(struct device *dev) {}
 
 struct platform_device at91_adc_device = {
 	.name					= "at91_adc",
@@ -53,15 +63,6 @@ static struct cdev	*at91_adc_cdev	= NULL;
 static dev_t				 at91_adc_devno = 0;
 static struct class *at91_adc_class = NULL;
 
-
-/* Device functions */
-#define at91_adc_read(reg)				ioread32(at91_adc_base + (reg))
-#define at91_adc_write(reg, val)	iowrite32((val), at91_adc_base + (reg))
-#define AT91_DEFAULT_CONFIG			 AT91_ADC_SHTIM	 | \
-																	AT91_ADC_STARTUP | \
-																	AT91_ADC_PRESCAL | \
-																	AT91_ADC_SLEEP
-
 static int at91_adc_read_chan(int chan){
 	int val, sr;
 
@@ -69,14 +70,51 @@ static int at91_adc_read_chan(int chan){
 		return -EINVAL;
 	}
 	at91_adc_write(AT91_ADC_CHER,AT91_ADC_CH(chan));			//Enable Channel
-	at91_adc_write(AT91_ADC_CR,AT91_ADC_START);					 //Start the ADC
+	at91_adc_write(AT91_ADC_CR,AT91_ADC_START);					//Start the ADC
 	
 	for(sr=0; !(sr & AT91_ADC_EOC(chan)); sr=at91_adc_read(AT91_ADC_SR))
 		cpu_relax();
 
-	val=at91_adc_read(AT91_ADC_CDR(chan)) & AT91_ADC_DATA; //Read up to 10 bits
+	val=at91_adc_read(AT91_ADC_CHR(chan)) & AT91_ADC_DATA; //Read up to 10 bits
 
 	return val;
+}
+
+/* 	PC0 -> AD0
+	PC1 -> 	AD1
+	PC2 -> 	AD2
+	PC3 -> 	AD3 */
+static int mux_chan (int chan, int operation) {
+
+	int pin_chan;
+
+	if(chan<0 || chan>3){
+		return -EINVAL;
+	}
+
+	switch (chan) { 
+		case 0:
+			pin_chan=AT91_PIN_PC0;
+			break;
+		case 1:
+			pin_chan=AT91_PIN_PC1;
+			break;
+		case 2:
+			pin_chan=AT91_PIN_PC2;
+			break;
+		case 3:
+			pin_chan=AT91_PIN_PC3;
+			break;
+		default:
+			return -EINVAL;
+	}
+
+	if (operation = 1)		//request_chan
+		at91_set_A_periph(pin_chan, 0);				//Mux PIN to GPIO
+	else					//free_chan
+		at91_set_B_periph(pin_chan, 0);				//Mux PIN to GPIO
+
+	return 0;
 }
 
 static int at91_adc_config(int requested_config){
@@ -135,8 +173,16 @@ static int at91_adc_ioctl(
 	int retval = 0;
 
 	switch (cmd) {
+		case ADC_REQUEST:
+			return mux_chan ((int)arg, 1);
+			break;
+
 		case ADC_READ:
 			return at91_adc_read_chan((int)arg);
+			break;
+
+		case ADC_FREE:
+			return mux_chan ((int)arg, 0);
 			break;
 
 		default:
