@@ -1,7 +1,7 @@
 /*
  *	Driver for ADC on Atmel AT91 SoC Family
  *
- *	Copyright (R) 2010 Claudio Mignanti - c.mignanti@gmail.com
+ *	Copyright (C) 2010 Claudio Mignanti - c.mignanti@gmail.com
  *	Based on http://www.at91.com/forum/viewtopic.php/p,9409/#p9409
  *
  *	Copyright (C) 2010 Stefano Barbato - stefano@codesink.org
@@ -18,7 +18,6 @@
  *	it under the terms of the GNU General Public License as	published by
  *	the Free Software Foundation.
  *
- * $Id$
  * ---------------------------------------------------------------------------
 */
 
@@ -59,9 +58,10 @@ struct platform_device at91_adc_device = {
 
 struct clk					*at91_adc_clk;
 void __iomem				*at91_adc_base;
-static struct cdev	*at91_adc_cdev	= NULL;
-static dev_t				 at91_adc_devno = 0;
-static struct class *at91_adc_class = NULL;
+void __iomem				*at91_pioc_base;
+static struct cdev			*at91_adc_cdev	= NULL;
+static dev_t				at91_adc_devno 	= 0;
+static struct class			*at91_adc_class	= NULL;
 
 static int at91_adc_read_chan(int chan){
 	int val, sr;
@@ -69,6 +69,9 @@ static int at91_adc_read_chan(int chan){
 	if(chan<0 || chan>3){
 		return -EINVAL;
 	}
+	/* disable pull-up resistor */
+	iowrite32(1 << chan, at91_pioc_base + 0x60);
+
 	at91_adc_write(AT91_ADC_CHER,AT91_ADC_CH(chan));			//Enable Channel
 	at91_adc_write(AT91_ADC_CR,AT91_ADC_START);					//Start the ADC
 	
@@ -260,7 +263,13 @@ static int __init at91_adc_init(void){
 	at91_adc_base = ioremap(AT91SAM9260_BASE_ADC,SZ_256);
 	if(!at91_adc_base){
 		status=-ENODEV;
-		goto fail_no_iomem;
+		goto fail_no_iomem_adc;
+	}
+
+	at91_pioc_base = ioremap(AT91_BASE_SYS + AT91_PIOC,SZ_512);
+	if(!at91_pioc_base){
+		status=-ENODEV;
+		goto fail_no_iomem_pioc;
 	}
 
 	status = platform_device_register(&at91_adc_device);
@@ -296,7 +305,9 @@ fail_no_config:
 	platform_device_unregister(&at91_adc_device);
 fail_no_dev:
 	iounmap(at91_adc_base);
-fail_no_iomem:
+fail_no_iomem_pioc:
+	iounmap(at91_pioc_base);
+fail_no_iomem_adc:
 	clk_disable(at91_adc_clk);
 	clk_put(at91_adc_clk);
 	return status;
@@ -307,6 +318,7 @@ static void __exit at91_adc_exit(void){
 	at91_adc_cdev_teardown();
 	platform_device_unregister(&at91_adc_device);
 	iounmap(at91_adc_base);
+	iounmap(at91_pioc_base);
 
 	clk_disable(at91_adc_clk);
 	clk_put(at91_adc_clk);
