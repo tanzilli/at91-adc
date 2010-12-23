@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/kernel.h>
+#include <linux/smp_lock.h>
 
 #include <asm/io.h>
 
@@ -112,7 +113,7 @@ static int mux_chan (int chan, int operation) {
 			return -EINVAL;
 	}
 
-	if (operation = 1)		//request_chan
+	if (operation == 1)		//request_chan
 		at91_set_A_periph(pin_chan, 0);				//Mux PIN to GPIO
 	else					//free_chan
 		at91_set_B_periph(pin_chan, 0);				//Mux PIN to GPIO
@@ -170,34 +171,51 @@ static const struct attribute_group at91_adc_dev_attr_group = {
 };
 
 /* IOCTL interface */
+#ifdef HAVE_UNLOCKED_IOCTL
+static long at91_adc_unlocked_ioctl(
+	struct file *file, unsigned int cmd, unsigned long arg){
+#else
 static int at91_adc_ioctl(
 	struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg){
+#endif
 
-	int retval = 0;
+	long retval = 0;
+
+#ifdef HAVE_UNLOCKED_IOCTL
+  lock_kernel();
+#endif
 
 	switch (cmd) {
 		case ADC_REQUEST:
-			return mux_chan ((int)arg, 1);
+			retval = mux_chan ((int)arg, 1);
 			break;
 
 		case ADC_READ:
-			return at91_adc_read_chan((int)arg);
+			retval = at91_adc_read_chan((int)arg);
 			break;
 
 		case ADC_FREE:
-			return mux_chan ((int)arg, 0);
+			retval = mux_chan ((int)arg, 0);
 			break;
 
 		default:
 			retval = -EINVAL;
 	}
 
+#ifdef HAVE_UNLOCKED_IOCTL
+  unlock_kernel();
+#endif
+
 	return retval;
 }
 
 struct file_operations at91_adc_fops = {
 	.owner = THIS_MODULE,
+#ifdef HAVE_UNLOCKED_IOCTL
+	.unlocked_ioctl = at91_adc_unlocked_ioctl,
+#else
 	.ioctl = at91_adc_ioctl,
+#endif
 };
 
 static void at91_adc_cdev_teardown(void){
