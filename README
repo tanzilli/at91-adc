@@ -1,0 +1,22 @@
+This is a linux kernel driver for ADC (analog-to-digital converter) available
+over at91 SoC family.
+
+For more info on the use see the code or:
+	http://www.acmesystems.it/?id=foxg20_adc
+
+CROSS-COMPILE
+-------------
+To cross-compile this driver you need a gcc-arm and configured kernel. Then
+simple type:
+
+make KERNELDIR=<path_to_kernel> CROSSCOMPILE=<path to ggc cross compiler>
+
+This will generate at91-adc.ko that can be loaded on your linux board 
+using insmod.
+
+IMPROVEMENT
+-----------
+Feel free to contact us for bugs, suggestion, patch and general
+improvement:
+	http://www.acmesystems.it/?id=427
+
