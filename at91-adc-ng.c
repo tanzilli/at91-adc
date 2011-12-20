@@ -38,6 +38,7 @@
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
 #include <linux/poll.h>
+#include <linux/sched.h>
 
 #include <mach/hardware.h>
 #include <mach/at91_adc.h>
@@ -84,7 +85,7 @@ struct {
 	} settings;
 } at91_adc_device;
 
-static DECLARE_MUTEX(adc_user_lock);
+static DEFINE_SEMAPHORE(adc_user_lock);
 static DECLARE_WAIT_QUEUE_HEAD(adc_wq);
 static spinlock_t adc_buffer_lock = SPIN_LOCK_UNLOCKED;
 
