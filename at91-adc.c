@@ -181,9 +181,7 @@ static int at91_adc_ioctl(
 
 	long retval = 0;
 
-#ifdef HAVE_UNLOCKED_IOCTL
-  lock_kernel();
-#endif
+//TODO: add some locks
 
 	switch (cmd) {
 		case ADC_REQUEST:
@@ -201,10 +199,6 @@ static int at91_adc_ioctl(
 		default:
 			retval = -EINVAL;
 	}
-
-#ifdef HAVE_UNLOCKED_IOCTL
-  unlock_kernel();
-#endif
 
 	return retval;
 }
