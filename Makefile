@@ -1,9 +1,10 @@
 obj-m += at91-adc.o
-obj-m += at91-adc-ng.o
 
-KERNELDIR	?= /lib/modules/$(shell uname -r)/build
+#KERNELDIR	= /lib/modules/$(shell uname -r)/build
+KERNELDIR	= ../linux-2.6.39
+CROSS_COMPILE=arm-linux-gnueabi-
 PWD		:= $(shell pwd)
+ARCH = arm
 
 all default:
-	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) modules
-
+	$(MAKE) -C $(KERNELDIR) SUBDIRS=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE)  modules
