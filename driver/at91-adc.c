@@ -31,7 +31,8 @@
 #include <linux/kernel.h>
 //#include <linux/smp_lock.h>
 
-#define AT91SAM9260_BASE_ADC		0xfffe0000
+//#define AT91SAM9260_BASE_ADC		0xfffe0000
+#define AT91SAM9260_BASE_ADC		0xf8050000
 
 #include <asm/io.h>
 
@@ -44,9 +45,9 @@
 #define ADC_FREE		3
 
 /* Device functions */
-#define at91_adc_read(reg)				ioread32(at91_adc_base + (reg))
+#define at91_adc_read(reg)			ioread32(at91_adc_base + (reg))
 #define at91_adc_write(reg, val)	iowrite32((val), at91_adc_base + (reg))
-#define AT91_DEFAULT_CONFIG			 AT91_ADC_SHTIM	 | \
+#define AT91_DEFAULT_CONFIG			AT91_ADC_SHTIM	 | \
 																	AT91_ADC_STARTUP | \
 																	AT91_ADC_PRESCAL | \
 																	AT91_ADC_SLEEP

@@ -1,0 +1,1 @@
+cmd_/home/tanzilli/ariag25/at91-adc/at91-adc.ko := arm-linux-gnueabi-ld -EL -r  -T /home/tanzilli/linux/ariag25-linux-2.6.39/scripts/module-common.lds --build-id  -o /home/tanzilli/ariag25/at91-adc/at91-adc.ko /home/tanzilli/ariag25/at91-adc/at91-adc.o /home/tanzilli/ariag25/at91-adc/at91-adc.mod.o
