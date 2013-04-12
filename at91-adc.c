@@ -1,23 +1,16 @@
 /*
  *	Driver for ADC on Atmel AT91 SoC Family
  *
- *	Copyright (C) 2010 Claudio Mignanti - c.mignanti@gmail.com
- *	Based on http://www.at91.com/forum/viewtopic.php/p,9409/#p9409
- *
- *	Copyright (C) 2010 Stefano Barbato - stefano@codesink.org
- *
- *	2010/05/18 Antonio Galea
- *		Sysfs device model, different drivers integration
- *
- *	WISHLIST:
- *	- concurrent access control
- *	- add support for dynamic reconfiguration
- *	- hardware triggers
+ *  Version for Aria G25 module or Terra board 
+ *		Copyright (C) 2013 Sergio Tanzilli - sergio@tanzilli.com
+ *  Version for FOX G20 board
+ *		Copyright (C) 2010 Claudio Mignanti - c.mignanti@gmail.com
+ *		Copyright (C) 2010 Stefano Barbato - stefano@codesink.org
+ *		Copyright (C) 2010 Antonio Galea
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License as	published by
  *	the Free Software Foundation.
- *
  * ---------------------------------------------------------------------------
 */
 
@@ -29,14 +22,54 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/kernel.h>
-//#include <linux/smp_lock.h>
 
-//#define AT91SAM9260_BASE_ADC		0xfffe0000
-#define AT91SAM9260_BASE_ADC		0xf8050000
+// Fox Board G20
+// Netus G20
+//#define AT91SAMG20
+
+// Aria G25
+// Terra
+#define AT91SAMG25
+
+/* G20 specific registers and flags */
+#ifdef  AT91SAMG20
+#define 	AT91SAM_BASE_ADC	0xfffe0000
+#define AT91_ADC_CR			0x00			/* Control Register */
+#define		AT91_ADC_SWRST		(1 << 0)		/* Software Reset */
+#define		AT91_ADC_START		(1 << 1)		/* Start Conversion */
+#define AT91_ADC_CHER		0x10			/* Channel Enable Register */
+#define		AT91_ADC_CH(n)		(1 << (n))		/* Channel Number */
+#define AT91_ADC_MR			0x04			/* Mode Register */
+#define		AT91_ADC_SHTIM		(0xf  << 24)	/* Sample & Hold Time */
+#define		AT91_ADC_STARTUP	(0x1f << 16)	/* Startup Up Time */
+#define		AT91_ADC_PRESCAL	(0x3f << 8)		/* Prescalar Rate Selection */
+#define		AT91_ADC_SLEEP		(1 << 5)		/* Sleep Mode */
+#define AT91_ADC_SR			0x1C			/* Status Register */
+#define		AT91_ADC_EOC(n)		(1 << (n))		/* End of Conversion on Channel N */
+#define AT91_ADC_CHR(n)		(0x30 + ((n) * 4))	/* Channel Data Register N */
+#define	AT91_ADC_DATA		(0x3ff)
+#endif
+
+/* G25 specific registers and flags */
+#ifdef  AT91SAMG25
+#define 	AT91SAM_BASE_ADC	0xf804C000
+#define AT91_ADC_CR			0x00			/* Control Register */
+#define		AT91_ADC_SWRST		(1 << 0)		/* Software Reset */
+#define		AT91_ADC_START		(1 << 1)		/* Start Conversion */
+#define AT91_ADC_CHER		0x10			/* Channel Enable Register */
+#define		AT91_ADC_CH(n)		(1 << (n))		/* Channel Number */
+#define AT91_ADC_MR			0x04			/* Mode Register */
+#define		AT91_ADC_SHTIM		(0xf  << 24)	/* Sample & Hold Time */
+#define		AT91_ADC_STARTUP	(0x0f << 16)	/* Startup Up Time */
+#define		AT91_ADC_PRESCAL	(0xff << 8)		/* Prescalar Rate Selection */
+#define		AT91_ADC_SLEEP		(1 << 5)		/* Sleep Mode */
+#define AT91_ADC_SR			0x30			/* Interrupt Status Register */
+#define		AT91_ADC_EOC(n)		(1 << (n))		/* End of Conversion on Channel N */
+#define AT91_ADC_CHR(n)		(0x50 + ((n) * 4))	/* Channel Data Register N */
+#define	AT91_ADC_DATA		(0xfff)
+#endif
 
 #include <asm/io.h>
-
-#include "at91_adc.h"
 
 #define DRV_CLASS	"at91_adc"
 
@@ -130,8 +163,8 @@ static int at91_adc_config(int requested_config){
 	at91_adc_write(AT91_ADC_CR,AT91_ADC_SWRST);	 //Reset the ADC
 	at91_adc_write(AT91_ADC_MR,requested_config); //Mode setup
 	actual_config = at91_adc_read(AT91_ADC_MR);	 //Read it back
-
 	return (requested_config==actual_config? 0: -EINVAL);
+	return(0);
 }
 
 /* Sysfs interface */
@@ -183,8 +216,6 @@ static int at91_adc_ioctl(
 #endif
 
 	long retval = 0;
-
-//TODO: add some locks
 
 	switch (cmd) {
 		case ADC_REQUEST:
@@ -275,41 +306,34 @@ static int __init at91_adc_init(void){
 	at91_adc_clk = clk_get(NULL,"adc_clk");
 	clk_enable(at91_adc_clk);
 
-	at91_adc_base = ioremap(AT91SAM9260_BASE_ADC,SZ_256);
+	at91_adc_base = ioremap(AT91SAM_BASE_ADC,SZ_256);
 	if(!at91_adc_base){
 		status=-ENODEV;
 		goto fail_no_iomem_adc;
 	}
-
 	at91_pioc_base = ioremap(AT91_BASE_SYS + AT91_PIOC,SZ_512);
 	if(!at91_pioc_base){
 		status=-ENODEV;
 		goto fail_no_iomem_pioc;
 	}
-
 	status = platform_device_register(&at91_adc_device);
 	if(status){
 		goto fail_no_dev;
 	}
-
 	status = at91_adc_config(AT91_DEFAULT_CONFIG);
 	if(status){
 		goto fail_no_config;
 	}
-
 	status = sysfs_create_group(
 		&(at91_adc_device.dev.kobj), &at91_adc_dev_attr_group
 	);
-
 	if(status){
 		goto fail_no_sysfs;
 	}
-
 	status = at91_adc_cdev_setup();
 	if(status){
 		goto fail_no_cdev;
 	}
-
 	printk(KERN_INFO "Registered device at91_adc.\n");
 	return 0;
 
@@ -344,9 +368,6 @@ static void __exit at91_adc_exit(void){
 module_init(at91_adc_init);
 module_exit(at91_adc_exit);
 
-MODULE_AUTHOR("Paul Kavan");
-MODULE_AUTHOR("Claudio Mignanti");
-MODULE_AUTHOR("Antonio Galea");
-MODULE_AUTHOR("Stefano Barbato");
-MODULE_DESCRIPTION("ADC Driver for the FoxBoardG20");
+MODULE_AUTHOR("Sergio Tanzilli");
+MODULE_DESCRIPTION("ADC Driver for Acme Boards");
 MODULE_LICENSE("GPL");
